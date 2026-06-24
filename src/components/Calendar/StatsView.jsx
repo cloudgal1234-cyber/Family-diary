@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useEvents } from '../../hooks/useEvents'
 import { useTasks } from '../../hooks/useTasks'
 import { getCurrentWeekStart, tsToDateStr } from '../../utils/dateUtils'
-import { getCategoryLabel, getStatusColor } from '../../utils/categoryConfig'
+import { getCategoryColor, getCategoryLabel, getStatusColor } from '../../utils/categoryConfig'
 
 export default function StatsView() {
   const { events }            = useEvents()
@@ -95,7 +95,7 @@ export default function StatsView() {
             <div key={cat} style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
               <div style={{ flex: 1, fontSize: '.82rem' }}>{getCategoryLabel(cat)}</div>
               <div style={{ background: '#EEE', flex: 2, borderRadius: 4, height: 8 }}>
-                <div style={{ background: getStatusColor('MOVED'), width: `${(count / stats.total) * 100}%`, height: '100%', borderRadius: 4 }} />
+                <div style={{ background: getCategoryColor(cat), width: `${(count / stats.total) * 100}%`, height: '100%', borderRadius: 4 }} />
               </div>
               <div style={{ fontSize: '.78rem', color: '#9E9E9E', width: 20, textAlign: 'left' }}>{count}</div>
             </div>

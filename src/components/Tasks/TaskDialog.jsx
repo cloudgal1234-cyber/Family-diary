@@ -47,16 +47,27 @@ export default function TaskDialog({ task, userId, onClose }) {
         ? combineDateAndTime(form.dueDate, form.timeBlockTime)
         : 0
 
-      const data = {
-        title: form.title, subject: form.subject, priority: form.priority,
-        dueDate: form.dueDate, dueTime: form.dueTime, dueTs,
-        description: form.description, notes: form.notes,
-        timeBlockEnabled: form.timeBlockEnabled,
-        timeBlockStart: tbStart,
-        timeBlockDuration: parseInt(form.timeBlockDuration) || 45,
+      if (isEdit) {
+        await updateTask(task.id, {
+          title: form.title, subject: form.subject, priority: form.priority,
+          description: form.description, notes: form.notes,
+          due: { date: form.dueDate, time: form.dueTime, timestamp: dueTs },
+          time_block: {
+            enabled:          form.timeBlockEnabled,
+            start_timestamp:  tbStart,
+            duration_minutes: parseInt(form.timeBlockDuration) || 45,
+          },
+        }, userId)
+      } else {
+        await createTask({
+          title: form.title, subject: form.subject, priority: form.priority,
+          dueDate: form.dueDate, dueTime: form.dueTime, dueTs,
+          description: form.description, notes: form.notes,
+          timeBlockEnabled: form.timeBlockEnabled,
+          timeBlockStart: tbStart,
+          timeBlockDuration: parseInt(form.timeBlockDuration) || 45,
+        }, userId)
       }
-      if (isEdit) await updateTask(task.id, data, userId)
-      else        await createTask(data, userId)
       onClose()
     } finally { setSaving(false) }
   }

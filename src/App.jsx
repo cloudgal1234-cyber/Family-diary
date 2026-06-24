@@ -24,7 +24,7 @@ export default function App() {
   // ── Navigation state ─────────────────────────────────────────
   const [tab,          setTab]         = useState('week')
   const [weekStart,    setWeekStart]   = useState(getCurrentWeekStart)
-  const [selectedDate, setSelectedDate] = useState(tsToDateStr(Date.now))
+  const [selectedDate, setSelectedDate] = useState(tsToDateStr(Date.now()))
 
   // ── Dialog state ─────────────────────────────────────────────
   const [eventDialog, setEventDialog] = useState(null)  // null | { event?, date? }
