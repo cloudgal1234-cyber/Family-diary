@@ -1,5 +1,5 @@
 import { db } from './config'
-import { ref, get, set, update } from 'firebase/database'
+import { ref, get, set, update, remove } from 'firebase/database'
 
 function randomCode() {
   return String(Math.floor(1000 + Math.random() * 9000))
@@ -54,4 +54,14 @@ export async function joinFamilyByCode(code, user) {
 export async function getFamilyCode(familyId) {
   const snap = await get(ref(db, `families/${familyId}/code`))
   return snap.val()
+}
+
+export async function cancelFamily(familyId, code, userId) {
+  await remove(ref(db, `families/${familyId}`))
+  await remove(ref(db, `family_codes/${code}`))
+  await remove(ref(db, `users/${userId}`))
+}
+
+export async function resetUserFamily(userId) {
+  await remove(ref(db, `users/${userId}`))
 }

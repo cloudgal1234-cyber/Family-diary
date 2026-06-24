@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createFamily, joinFamilyByCode } from '../../firebase/familyService'
+import { createFamily, joinFamilyByCode, cancelFamily } from '../../firebase/familyService'
 
 export default function RoleScreen({ user, onFamilySet }) {
   const [step,       setStep]       = useState('choose')
@@ -20,6 +20,16 @@ export default function RoleScreen({ user, onFamilySet }) {
       setStep('parent-code')
     } catch { setError('שגיאה ביצירת המשפחה, נסה שוב') }
     finally  { setLoading(false) }
+  }
+
+  async function handleCancelParent() {
+    if (!pendingFid || !myCode) { setStep('choose'); return }
+    setLoading(true)
+    try { await cancelFamily(pendingFid, myCode, user.uid) } catch {}
+    finally {
+      setPendingFid(null); setMyCode('')
+      setStep('choose'); setLoading(false)
+    }
   }
 
   async function handleChildJoin() {
@@ -55,6 +65,7 @@ export default function RoleScreen({ user, onFamilySet }) {
               className="btn btn-secondary"
               style={{ fontSize: '1rem', padding: 16 }}
               onClick={() => { setStep('child-code'); setError('') }}
+              disabled={loading}
             >
               👧 אני ילד — הצטרף למשפחה
             </button>
@@ -78,13 +89,23 @@ export default function RoleScreen({ user, onFamilySet }) {
             <p style={{ textAlign: 'center', color: '#9E9E9E', fontSize: '.8rem', marginBottom: 20 }}>
               שתף קוד זה עם ילדיך כדי שיצטרפו
             </p>
-            <button
-              className="btn btn-primary"
-              style={{ fontSize: '1rem', padding: 16 }}
-              onClick={() => onFamilySet(pendingFid, 'parent')}
-            >
-              בוא נתחיל ←
-            </button>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button
+                className="btn btn-secondary"
+                style={{ flex: 1 }}
+                onClick={handleCancelParent}
+                disabled={loading}
+              >
+                {loading ? '...' : '← חזור'}
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 2, fontSize: '1rem', padding: 16 }}
+                onClick={() => onFamilySet(pendingFid, 'parent')}
+              >
+                בוא נתחיל ←
+              </button>
+            </div>
           </>
         )}
 

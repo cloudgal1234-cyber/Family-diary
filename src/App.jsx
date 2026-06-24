@@ -15,7 +15,7 @@ import TaskDialog      from './components/Tasks/TaskDialog'
 
 import { FamilyProvider, useFamily } from './contexts/FamilyContext'
 import { subscribeToNotifications, markNotificationRead } from './firebase/eventsService'
-import { getFamilyCode } from './firebase/familyService'
+import { getFamilyCode, resetUserFamily } from './firebase/familyService'
 import { signOutUser } from './firebase/authService'
 import { getCurrentWeekStart, tsToDateStr } from './utils/dateUtils'
 
@@ -125,6 +125,14 @@ function AppShell({ user }) {
     setCodeDialog(true)
   }
 
+  // ── Reset family membership (return to role screen) ───────────
+  async function handleResetFamily() {
+    if (!confirm('לעבור לבחירת תפקיד מחדש? תצא מהמשפחה הנוכחית.')) return
+    await resetUserFamily(user.uid)
+    setFamilyId(null)
+    setRole(null)
+  }
+
   // ── Render ────────────────────────────────────────────────────
   return (
     <div className="app-shell">
@@ -155,6 +163,7 @@ function AppShell({ user }) {
               👶+
             </button>
           )}
+          <button className="icon-btn" onClick={handleResetFamily} title="החלף תפקיד" style={{ fontSize: '.9rem' }}>🔄</button>
           <button className="icon-btn" onClick={() => signOutUser()} title="יציאה" style={{ fontSize: '.9rem' }}>🚪</button>
         </div>
       </header>
