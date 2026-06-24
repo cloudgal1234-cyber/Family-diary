@@ -1,0 +1,146 @@
+{
+  "_comment": "סכמת Firebase Realtime Database למערכת יומן המשפחה — Family Diary",
+  "_version": "1.0.0",
+
+  "families": {
+    "$familyId": {
+
+      "meta": {
+        "name": "שם המשפחה",
+        "created_at": 1700000000000,
+        "timezone": "Asia/Jerusalem",
+        "language": "he"
+      },
+
+      "users": {
+        "$userId": {
+          "id": "uid_abc123",
+          "name": "יעל",
+          "role": "CHILD",
+          "color": "#FF6B6B",
+          "avatar_url": "https://...",
+          "fcm_token": "firebase_cloud_messaging_token",
+          "last_seen": 1700000000000,
+          "settings": {
+            "notifications_enabled": true,
+            "default_reminder_minutes": 30
+          }
+        }
+      },
+
+      "events": {
+        "$eventId": {
+          "id": "evt_xyz789",
+          "title": "חוג שחייה",
+          "description": "בריכת רמת גן, מסלול 3",
+          "category": "CHUGIM",
+          "location": "בריכת רמת גן",
+
+          "original_time": {
+            "start": 1700010000000,
+            "end": 1700013600000,
+            "date": "2024-11-15"
+          },
+          "current_time": {
+            "start": 1700013600000,
+            "end": 1700017200000,
+            "date": "2024-11-15"
+          },
+
+          "status": "MOVED",
+          "status_note": "המאמן ביקש להזיז שעה קדימה",
+
+          "recurrence": {
+            "is_recurring": true,
+            "frequency": "WEEKLY",
+            "days_of_week": [1, 3],
+            "end_date": "2025-06-30",
+            "exclude_dates": []
+          },
+
+          "attendees": ["uid_abc123", "uid_def456"],
+          "created_by": "uid_parent001",
+          "updated_by": "uid_parent001",
+          "created_at": 1699900000000,
+          "updated_at": 1700009000000,
+
+          "notification": {
+            "before_minutes": 30,
+            "enabled": true,
+            "sent": false
+          },
+
+          "color_override": null,
+          "is_deleted": false
+        }
+      },
+
+      "tasks": {
+        "$taskId": {
+          "id": "task_hw001",
+          "title": "שיעורי בית — חשבון עמוד 45",
+          "subject": "מתמטיקה",
+          "description": "תרגילים 1-10",
+          "priority": "HIGH",
+          "status": "PENDING",
+
+          "due": {
+            "date": "2024-11-16",
+            "time": "18:00",
+            "timestamp": 1700139600000
+          },
+
+          "time_block": {
+            "enabled": true,
+            "start_timestamp": 1700132400000,
+            "duration_minutes": 45
+          },
+
+          "assigned_to": "uid_abc123",
+          "created_by": "uid_parent001",
+          "updated_by": "uid_abc123",
+          "created_at": 1699900000000,
+          "updated_at": 1700050000000,
+
+          "completed_at": null,
+          "notes": "צריך מחשבון",
+          "is_deleted": false
+        }
+      },
+
+      "notifications": {
+        "$notifId": {
+          "id": "notif_001",
+          "type": "EVENT_MOVED",
+          "ref_id": "evt_xyz789",
+          "ref_type": "EVENT",
+          "message": "חוג שחייה הוזז — עכשיו ב-17:00",
+          "created_by": "uid_parent001",
+          "created_at": 1700009000000,
+          "read_by": {
+            "uid_abc123": 1700009500000
+          },
+          "is_urgent": true
+        }
+      }
+
+    }
+  },
+
+  "_indexes": {
+    "_comment": "הוסף אינדקסים אלה ב-Firebase Database Rules",
+    "events_by_date": ".indexOn: [current_time/date, category, status]",
+    "tasks_by_due": ".indexOn: [due/timestamp, assigned_to, status]",
+    "notifications_unread": ".indexOn: [created_at, is_urgent]"
+  },
+
+  "_enums": {
+    "category": ["CHUGIM", "HOMEWORK", "FAMILY", "FRIENDS", "OTHER"],
+    "event_status": ["ON_TIME", "MOVED", "CANCELED", "RESCHEDULED", "POSTPONED"],
+    "task_status": ["PENDING", "IN_PROGRESS", "DONE", "SKIPPED"],
+    "task_priority": ["LOW", "MEDIUM", "HIGH", "URGENT"],
+    "user_role": ["PARENT", "CHILD"],
+    "recurrence_frequency": ["DAILY", "WEEKLY", "MONTHLY"],
+    "notification_type": ["EVENT_MOVED", "EVENT_CANCELED", "TASK_DUE", "NEW_EVENT", "TASK_DONE"]
+  }
+}
