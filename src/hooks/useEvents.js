@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react'
 import { subscribeToEvents } from '../firebase/eventsService'
+import { useFamily } from '../contexts/FamilyContext'
 import { tsToDateStr } from '../utils/dateUtils'
 
 export function useEvents() {
-  const [events, setEvents]   = useState([])
+  const { familyId } = useFamily()
+  const [events,  setEvents]  = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const unsub = subscribeToEvents((evts) => {
+    if (!familyId) { setLoading(false); return }
+    const unsub = subscribeToEvents(familyId, (evts) => {
       setEvents(evts)
       setLoading(false)
     })
     return unsub
-  }, [])
+  }, [familyId])
 
   function getEventsForDate(dateStr) {
     return events
@@ -23,9 +26,8 @@ export function useEvents() {
   function getEventsForWeek(weekStartTs) {
     const days = {}
     for (let i = 0; i < 7; i++) {
-      const ts  = weekStartTs + i * 86400000
-      const key = tsToDateStr(ts)
-      days[key]  = []
+      const key = tsToDateStr(weekStartTs + i * 86400000)
+      days[key] = []
     }
     events.forEach(e => {
       const d = e.current_time?.date

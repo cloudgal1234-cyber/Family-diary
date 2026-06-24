@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTasks } from '../../hooks/useTasks'
+import { useFamily } from '../../contexts/FamilyContext'
 import { toggleTaskDone, deleteTask } from '../../firebase/tasksService'
 import { PRIORITIES } from '../../utils/categoryConfig'
 import { todayStr, tomorrowStr } from '../../utils/dateUtils'
@@ -13,17 +14,17 @@ const FILTERS = [
 ]
 
 export default function TaskList({ userId, onEditTask }) {
+  const { familyId } = useFamily()
   const [filter, setFilter] = useState('ALL')
   const { filterTasks, sortTasks, isOverdue } = useTasks()
-
-  const tasks  = sortTasks(filterTasks(filter))
+  const tasks = sortTasks(filterTasks(filter))
 
   async function handleToggle(task) {
-    await toggleTaskDone(task.id, task.status !== 'DONE', userId)
+    await toggleTaskDone(familyId, task.id, task.status !== 'DONE', userId)
   }
 
   async function handleDelete(taskId) {
-    if (confirm('למחוק את המשימה?')) await deleteTask(taskId, userId)
+    if (confirm('למחוק את המשימה?')) await deleteTask(familyId, taskId, userId)
   }
 
   function formatDue(task) {
@@ -35,20 +36,14 @@ export default function TaskList({ userId, onEditTask }) {
 
   return (
     <div className="task-view">
-      {/* Filter bar */}
       <div className="filter-bar">
         {FILTERS.map(f => (
-          <button
-            key={f.id}
-            className={`filter-btn ${filter === f.id ? 'active' : ''}`}
-            onClick={() => setFilter(f.id)}
-          >
+          <button key={f.id} className={`filter-btn ${filter === f.id ? 'active' : ''}`} onClick={() => setFilter(f.id)}>
             {f.label}
           </button>
         ))}
       </div>
 
-      {/* List */}
       <div className="task-scroll">
         {tasks.length === 0 ? (
           <div className="empty-state">
@@ -66,14 +61,11 @@ export default function TaskList({ userId, onEditTask }) {
             const dueText   = formatDue(task)
 
             return (
-              <div
-                key={task.id}
+              <div key={task.id}
                 className={`task-item ${done ? 'done' : ''} ${overdue ? 'overdue' : ''}`}
                 onDoubleClick={() => onEditTask?.(task)}
               >
                 <div className="task-priority-bar" style={{ background: prioColor }} />
-
-                {/* Checkbox */}
                 <div className="task-checkbox-wrap">
                   <button
                     className={`task-checkbox ${done ? 'checked' : ''}`}
@@ -81,8 +73,6 @@ export default function TaskList({ userId, onEditTask }) {
                     aria-label={done ? 'בטל השלמה' : 'סמן כהושלם'}
                   />
                 </div>
-
-                {/* Content */}
                 <div className="task-body">
                   <div className={`task-title ${done ? 'done' : ''}`}>{task.title}</div>
                   {task.subject && <div className="task-subject">{task.subject}</div>}
@@ -99,17 +89,10 @@ export default function TaskList({ userId, onEditTask }) {
                       </span>
                     )}
                     {task.priority === 'URGENT' && !done && (
-                      <span
-                        className="priority-tag"
-                        style={{ background: '#FFEBEE', color: '#E53935' }}
-                      >
-                        🔥 דחוף
-                      </span>
+                      <span className="priority-tag" style={{ background: '#FFEBEE', color: '#E53935' }}>🔥 דחוף</span>
                     )}
                   </div>
                 </div>
-
-                {/* Delete */}
                 <button
                   style={{ background: 'none', border: 'none', padding: '12px 10px', cursor: 'pointer', color: '#BDBDBD', fontSize: '1rem' }}
                   onClick={() => handleDelete(task.id)}

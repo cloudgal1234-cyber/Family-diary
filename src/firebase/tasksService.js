@@ -1,13 +1,13 @@
-import { db, FAMILY_ID } from './config'
+import { db } from './config'
 import { ref, onValue, off, push, update, set } from 'firebase/database'
 
-const tasksRef = () => ref(db, `families/${FAMILY_ID}/tasks`)
-const taskRef  = (id) => ref(db, `families/${FAMILY_ID}/tasks/${id}`)
+const tasksRef = (fid)     => ref(db, `families/${fid}/tasks`)
+const taskRef  = (fid, id) => ref(db, `families/${fid}/tasks/${id}`)
 
-export function subscribeToTasks(callback) {
-  const r = tasksRef()
+export function subscribeToTasks(familyId, callback) {
+  const r = tasksRef(familyId)
   onValue(r, (snap) => {
-    const raw = snap.val() || {}
+    const raw   = snap.val() || {}
     const tasks = Object.entries(raw)
       .map(([id, v]) => ({ ...v, id }))
       .filter(t => !t.is_deleted)
@@ -16,8 +16,8 @@ export function subscribeToTasks(callback) {
   return () => off(r)
 }
 
-export async function createTask(data, userId) {
-  const newRef = push(tasksRef())
+export async function createTask(familyId, data, userId) {
+  const newRef = push(tasksRef(familyId))
   const id     = newRef.key
   const now    = Date.now()
   await set(newRef, {
@@ -28,7 +28,7 @@ export async function createTask(data, userId) {
     notes:       data.notes || '',
     priority:    data.priority || 'MEDIUM',
     status:      'PENDING',
-    family_id:   FAMILY_ID,
+    family_id:   familyId,
     due: {
       date:      data.dueDate || '',
       time:      data.dueTime || '',
@@ -50,9 +50,9 @@ export async function createTask(data, userId) {
   return id
 }
 
-export async function toggleTaskDone(id, isDone, userId) {
+export async function toggleTaskDone(familyId, id, isDone, userId) {
   const now = Date.now()
-  await update(taskRef(id), {
+  await update(taskRef(familyId, id), {
     status:       isDone ? 'DONE' : 'PENDING',
     completed_at: isDone ? now : null,
     updated_by:   userId,
@@ -60,10 +60,10 @@ export async function toggleTaskDone(id, isDone, userId) {
   })
 }
 
-export async function updateTask(id, data, userId) {
-  await update(taskRef(id), { ...data, updated_by: userId, updated_at: Date.now() })
+export async function updateTask(familyId, id, data, userId) {
+  await update(taskRef(familyId, id), { ...data, updated_by: userId, updated_at: Date.now() })
 }
 
-export async function deleteTask(id, userId) {
-  await update(taskRef(id), { is_deleted: true, updated_by: userId, updated_at: Date.now() })
+export async function deleteTask(familyId, id, userId) {
+  await update(taskRef(familyId, id), { is_deleted: true, updated_by: userId, updated_at: Date.now() })
 }

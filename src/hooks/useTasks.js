@@ -1,28 +1,26 @@
 import { useState, useEffect } from 'react'
 import { subscribeToTasks } from '../firebase/tasksService'
+import { useFamily } from '../contexts/FamilyContext'
 import { todayStr, tomorrowStr } from '../utils/dateUtils'
 
 export function useTasks() {
-  const [tasks, setTasks]     = useState([])
+  const { familyId } = useFamily()
+  const [tasks,   setTasks]   = useState([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const unsub = subscribeToTasks((t) => { setTasks(t); setLoading(false) })
+    if (!familyId) { setLoading(false); return }
+    const unsub = subscribeToTasks(familyId, (t) => { setTasks(t); setLoading(false) })
     return unsub
-  }, [])
+  }, [familyId])
 
   function filterTasks(filter) {
     switch (filter) {
-      case 'TODAY':
-        return tasks.filter(t => t.due?.date === todayStr() && t.status !== 'DONE')
-      case 'TOMORROW':
-        return tasks.filter(t => t.due?.date === tomorrowStr() && t.status !== 'DONE')
-      case 'URGENT':
-        return tasks.filter(t => (t.priority === 'URGENT' || t.priority === 'HIGH') && t.status !== 'DONE')
-      case 'DONE':
-        return tasks.filter(t => t.status === 'DONE')
-      default:
-        return tasks.filter(t => t.status !== 'DONE')
+      case 'TODAY':    return tasks.filter(t => t.due?.date === todayStr() && t.status !== 'DONE')
+      case 'TOMORROW': return tasks.filter(t => t.due?.date === tomorrowStr() && t.status !== 'DONE')
+      case 'URGENT':   return tasks.filter(t => (t.priority === 'URGENT' || t.priority === 'HIGH') && t.status !== 'DONE')
+      case 'DONE':     return tasks.filter(t => t.status === 'DONE')
+      default:         return tasks.filter(t => t.status !== 'DONE')
     }
   }
 

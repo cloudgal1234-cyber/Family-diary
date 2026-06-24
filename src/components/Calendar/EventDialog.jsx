@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { createEvent, updateEvent, hotUpdateEvent, deleteEvent } from '../../firebase/eventsService'
-import { CATEGORIES, STATUSES, getStatusColor } from '../../utils/categoryConfig'
+import { useFamily } from '../../contexts/FamilyContext'
+import { CATEGORIES, STATUSES } from '../../utils/categoryConfig'
 import { tsToDateStr, combineDateAndTime } from '../../utils/dateUtils'
 
 const EMPTY = {
@@ -10,24 +11,25 @@ const EMPTY = {
 }
 
 export default function EventDialog({ event, defaultDate, userId, onClose }) {
+  const { familyId } = useFamily()
   const isEdit = !!event
-  const [form,  setForm]  = useState(EMPTY)
+  const [form,   setForm]   = useState(EMPTY)
   const [saving, setSaving] = useState(false)
-  const [tab,   setTab]   = useState('details')   // 'details' | 'status'
+  const [tab,    setTab]    = useState('details')
 
   useEffect(() => {
     if (event) {
       setForm({
-        title:         event.title || '',
-        category:      event.category || 'CHUGIM',
-        date:          event.current_time?.date || '',
-        startTime:     tsToHHMM(event.current_time?.start),
-        endTime:       tsToHHMM(event.current_time?.end),
-        location:      event.location || '',
-        description:   event.description || '',
-        status:        event.status || 'ON_TIME',
-        statusNote:    event.status_note || '',
-        isRecurring:   event.recurrence?.is_recurring || false,
+        title:          event.title || '',
+        category:       event.category || 'CHUGIM',
+        date:           event.current_time?.date || '',
+        startTime:      tsToHHMM(event.current_time?.start),
+        endTime:        tsToHHMM(event.current_time?.end),
+        location:       event.location || '',
+        description:    event.description || '',
+        status:         event.status || 'ON_TIME',
+        statusNote:     event.status_note || '',
+        isRecurring:    event.recurrence?.is_recurring || false,
         recurrenceFreq: event.recurrence?.frequency || 'WEEKLY',
       })
     } else {
@@ -35,7 +37,7 @@ export default function EventDialog({ event, defaultDate, userId, onClose }) {
     }
   }, [event, defaultDate])
 
-  function set(key, val) { setForm(f => ({ ...f, [key]: val })) }
+  function setField(key, val) { setForm(f => ({ ...f, [key]: val })) }
 
   async function handleSave() {
     if (!form.title.trim()) return alert('יש להזין שם לאירוע')
@@ -48,14 +50,14 @@ export default function EventDialog({ event, defaultDate, userId, onClose }) {
 
       if (isEdit) {
         if (form.status !== event.status || startTs !== event.current_time?.start) {
-          await hotUpdateEvent(event.id, form.status, startTs, endTs, form.statusNote, userId)
+          await hotUpdateEvent(familyId, event.id, form.status, startTs, endTs, form.statusNote, userId)
         }
-        await updateEvent(event.id, {
+        await updateEvent(familyId, event.id, {
           title: form.title, category: form.category,
           location: form.location, description: form.description,
         }, userId)
       } else {
-        await createEvent({
+        await createEvent(familyId, {
           title: form.title, category: form.category,
           date: form.date, startTs, endTs,
           location: form.location, description: form.description,
@@ -68,7 +70,7 @@ export default function EventDialog({ event, defaultDate, userId, onClose }) {
 
   async function handleDelete() {
     if (!confirm(`למחוק את "${event.title}"?`)) return
-    await deleteEvent(event.id, userId)
+    await deleteEvent(familyId, event.id, userId)
     onClose()
   }
 
@@ -81,12 +83,10 @@ export default function EventDialog({ event, defaultDate, userId, onClose }) {
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
-        {/* Tabs */}
         {isEdit && (
           <div style={{ display: 'flex', borderBottom: '1px solid #EEE', padding: '0 20px' }}>
             {[['details','פרטים'], ['status','סטטוס 🔥']].map(([id, lbl]) => (
-              <button key={id}
-                onClick={() => setTab(id)}
+              <button key={id} onClick={() => setTab(id)}
                 style={{ padding: '10px 16px', border: 'none', background: 'none', cursor: 'pointer',
                   fontWeight: tab === id ? 700 : 400, color: tab === id ? '#1A237E' : '#9E9E9E',
                   borderBottom: tab === id ? '2px solid #1A237E' : '2px solid transparent',
@@ -102,46 +102,41 @@ export default function EventDialog({ event, defaultDate, userId, onClose }) {
             <>
               <div className="field-group">
                 <div className="field-label">שם האירוע *</div>
-                <input className="text-input" value={form.title} onChange={e => set('title', e.target.value)} placeholder="למשל: חוג שחייה" />
+                <input className="text-input" value={form.title} onChange={e => setField('title', e.target.value)} placeholder="למשל: חוג שחייה" />
               </div>
-
               <div className="field-group">
                 <div className="field-label">קטגוריה</div>
                 <div className="chip-row">
                   {Object.entries(CATEGORIES).map(([key, { label, color, emoji }]) => (
                     <button key={key} className={`chip ${form.category === key ? 'selected' : ''}`}
                       style={form.category === key ? { background: color, borderColor: color } : { borderColor: color, color }}
-                      onClick={() => set('category', key)}>
+                      onClick={() => setField('category', key)}>
                       {emoji} {label}
                     </button>
                   ))}
                 </div>
               </div>
-
               <div className="field-group">
                 <div className="field-label">תאריך *</div>
-                <input className="text-input" type="date" value={form.date} onChange={e => set('date', e.target.value)} />
+                <input className="text-input" type="date" value={form.date} onChange={e => setField('date', e.target.value)} />
               </div>
-
               <div className="time-row">
                 <div className="field-group">
                   <div className="field-label">שעת התחלה</div>
-                  <input className="text-input" type="time" value={form.startTime} onChange={e => set('startTime', e.target.value)} />
+                  <input className="text-input" type="time" value={form.startTime} onChange={e => setField('startTime', e.target.value)} />
                 </div>
                 <div className="field-group">
                   <div className="field-label">שעת סיום</div>
-                  <input className="text-input" type="time" value={form.endTime} onChange={e => set('endTime', e.target.value)} />
+                  <input className="text-input" type="time" value={form.endTime} onChange={e => setField('endTime', e.target.value)} />
                 </div>
               </div>
-
               <div className="field-group">
                 <div className="field-label">מיקום</div>
-                <input className="text-input" value={form.location} onChange={e => set('location', e.target.value)} placeholder="בריכה, כיתה, בית..." />
+                <input className="text-input" value={form.location} onChange={e => setField('location', e.target.value)} placeholder="בריכה, כיתה, בית..." />
               </div>
-
               <div className="field-group">
                 <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
-                  <input type="checkbox" checked={form.isRecurring} onChange={e => set('isRecurring', e.target.checked)} />
+                  <input type="checkbox" checked={form.isRecurring} onChange={e => setField('isRecurring', e.target.checked)} />
                   <span style={{ fontSize: '.9rem' }}>אירוע חוזר (כל שבוע)</span>
                 </label>
               </div>
@@ -156,26 +151,24 @@ export default function EventDialog({ event, defaultDate, userId, onClose }) {
                   {Object.entries(STATUSES).map(([key, { label, color }]) => (
                     <button key={key} className={`chip ${form.status === key ? 'selected' : ''}`}
                       style={form.status === key ? { background: color, borderColor: color } : { borderColor: color, color }}
-                      onClick={() => set('status', key)}>
+                      onClick={() => setField('status', key)}>
                       {label}
                     </button>
                   ))}
                 </div>
               </div>
-
               {form.status !== 'ON_TIME' && (
                 <>
                   <div className="field-group">
                     <div className="field-label">שעת התחלה חדשה</div>
-                    <input className="text-input" type="time" value={form.startTime} onChange={e => set('startTime', e.target.value)} />
+                    <input className="text-input" type="time" value={form.startTime} onChange={e => setField('startTime', e.target.value)} />
                   </div>
                   <div className="field-group">
                     <div className="field-label">הסבר (לבני המשפחה)</div>
-                    <textarea className="text-input" value={form.statusNote} onChange={e => set('statusNote', e.target.value)} placeholder="למשל: המאמן ביקש להזיז..." />
+                    <textarea className="text-input" value={form.statusNote} onChange={e => setField('statusNote', e.target.value)} placeholder="למשל: המאמן ביקש להזיז..." />
                   </div>
                 </>
               )}
-
               {form.status === 'ON_TIME' && (
                 <div style={{ textAlign: 'center', color: '#9E9E9E', padding: '20px 0', fontSize: '.9rem' }}>
                   ✅ האירוע מתקיים בזמן המקורי

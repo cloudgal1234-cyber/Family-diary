@@ -5,6 +5,7 @@ import { useEvents } from './hooks/useEvents'
 import NavBar          from './components/Layout/NavBar'
 import HotUpdateBanner from './components/Layout/HotUpdateBanner'
 import LoginScreen     from './components/Layout/LoginScreen'
+import RoleScreen      from './components/Layout/RoleScreen'
 import WeekView        from './components/Calendar/WeekView'
 import DayView         from './components/Calendar/DayView'
 import EventDialog     from './components/Calendar/EventDialog'
@@ -12,30 +13,58 @@ import StatsView       from './components/Calendar/StatsView'
 import TaskList        from './components/Tasks/TaskList'
 import TaskDialog      from './components/Tasks/TaskDialog'
 
+import { FamilyProvider, useFamily } from './contexts/FamilyContext'
 import { subscribeToNotifications, markNotificationRead } from './firebase/eventsService'
+import { getFamilyCode } from './firebase/familyService'
 import { signOutUser } from './firebase/authService'
 import { getCurrentWeekStart, tsToDateStr } from './utils/dateUtils'
 
 import './styles/app.css'
 
+// ── Root: handles auth then wraps with FamilyProvider ────────────
 export default function App() {
   const { user, loading } = useAuth()
 
+  if (loading) return <Spinner />
+  if (!user)   return <LoginScreen />
+
+  return (
+    <FamilyProvider user={user}>
+      <AppShell user={user} />
+    </FamilyProvider>
+  )
+}
+
+function Spinner() {
+  return (
+    <div className="loading-screen">
+      <div className="loader" />
+      <p>טוען...</p>
+    </div>
+  )
+}
+
+// ── Main shell: needs FamilyProvider already mounted ─────────────
+function AppShell({ user }) {
+  const { familyId, role, setFamilyId, setRole, loading: familyLoading } = useFamily()
+
   // ── Navigation state ─────────────────────────────────────────
-  const [tab,          setTab]         = useState('week')
-  const [weekStart,    setWeekStart]   = useState(getCurrentWeekStart)
+  const [tab,          setTab]          = useState('week')
+  const [weekStart,    setWeekStart]    = useState(getCurrentWeekStart)
   const [selectedDate, setSelectedDate] = useState(tsToDateStr(Date.now()))
 
   // ── Dialog state ─────────────────────────────────────────────
-  const [eventDialog, setEventDialog] = useState(null)  // null | { event?, date? }
-  const [taskDialog,  setTaskDialog]  = useState(null)  // null | { task? }
+  const [eventDialog, setEventDialog] = useState(null)
+  const [taskDialog,  setTaskDialog]  = useState(null)
+  const [codeDialog,  setCodeDialog]  = useState(false)
+  const [familyCode,  setFamilyCode]  = useState('')
 
   // ── Notifications & banner ────────────────────────────────────
   const [notifications, setNotifications] = useState([])
   const [banner,        setBanner]        = useState(null)
   const seenNotifsRef = useRef(new Set())
 
-  // ── Events ────────────────────────────────────────────────────
+  // ── Events (reads from FamilyContext internally) ──────────────
   const { getEventsForDate, getEventsForWeek, getChangedEvents } = useEvents()
   const eventsByDate = getEventsForWeek(weekStart)
   const dayEvents    = getEventsForDate(selectedDate)
@@ -43,10 +72,9 @@ export default function App() {
 
   // ── Subscribe to notifications ────────────────────────────────
   useEffect(() => {
-    if (!user) return
-    const unsub = subscribeToNotifications((notifs) => {
+    if (!user || !familyId) return
+    const unsub = subscribeToNotifications(familyId, (notifs) => {
       setNotifications(notifs)
-      // Show banner for new unseen notifications
       const newest = notifs.find(n => {
         const readByMe = n.read_by?.[user.uid]
         return !readByMe && !seenNotifsRef.current.has(n.id)
@@ -57,50 +85,55 @@ export default function App() {
       }
     })
     return unsub
-  }, [user])
+  }, [user, familyId])
 
-  const unreadCount = notifications.filter(n => !n.read_by?.[user?.uid]).length
-
-  // ── Loading screen ─────────────────────────────────────────────
-  if (loading) {
+  // ── Loading / role selection ──────────────────────────────────
+  if (familyLoading) return <Spinner />
+  if (!familyId) {
     return (
-      <div className="loading-screen">
-        <div className="loader" />
-        <p>טוען...</p>
-      </div>
+      <RoleScreen
+        user={user}
+        onFamilySet={(fid, r) => { setFamilyId(fid); setRole(r) }}
+      />
     )
   }
 
-  if (!user) return <LoginScreen />
+  const unreadCount = notifications.filter(n => !n.read_by?.[user?.uid]).length
 
-  // ── Week navigation ────────────────────────────────────────────
+  // ── Week navigation ───────────────────────────────────────────
   function goNextWeek() { setWeekStart(w => w + 7 * 86400000) }
   function goPrevWeek() { setWeekStart(w => w - 7 * 86400000) }
   function goThisWeek() { setWeekStart(getCurrentWeekStart()) }
 
   function goNextDay() {
-    const ts = new Date(selectedDate).getTime() + 86400000 + 3600000  // +1h for DST safety
-    setSelectedDate(tsToDateStr(ts))
+    setSelectedDate(tsToDateStr(new Date(selectedDate).getTime() + 86400000 + 3600000))
   }
   function goPrevDay() {
-    const ts = new Date(selectedDate).getTime() - 86400000 + 3600000
-    setSelectedDate(tsToDateStr(ts))
+    setSelectedDate(tsToDateStr(new Date(selectedDate).getTime() - 86400000 + 3600000))
   }
 
-  // ── FAB action ────────────────────────────────────────────────
+  // ── FAB ───────────────────────────────────────────────────────
   function handleFAB() {
     if (tab === 'tasks') setTaskDialog({})
     else setEventDialog({ date: tab === 'day' ? selectedDate : tsToDateStr(Date.now()) })
   }
 
+  // ── Show family code dialog (parents only) ────────────────────
+  async function handleShowCode() {
+    const code = await getFamilyCode(familyId)
+    setFamilyCode(code)
+    setCodeDialog(true)
+  }
+
   // ── Render ────────────────────────────────────────────────────
   return (
     <div className="app-shell">
+
       {/* ── Global Banner ── */}
       <HotUpdateBanner
         notification={banner}
         onClose={() => setBanner(null)}
-        onClick={n => { if (n?.id && user) markNotificationRead(n.id, user.uid) }}
+        onClick={n => { if (n?.id && user) markNotificationRead(familyId, n.id, user.uid) }}
       />
 
       {/* ── Header ── */}
@@ -117,6 +150,11 @@ export default function App() {
               <button className="icon-btn" onClick={goNextWeek} title="שבוע הבא">›</button>
             </>
           )}
+          {role === 'parent' && (
+            <button className="icon-btn" onClick={handleShowCode} title="הוסף ילד" style={{ fontSize: '1rem' }}>
+              👶+
+            </button>
+          )}
           <button className="icon-btn" onClick={() => signOutUser()} title="יציאה" style={{ fontSize: '.9rem' }}>🚪</button>
         </div>
       </header>
@@ -124,7 +162,6 @@ export default function App() {
       {/* ── Main content ── */}
       <main className="main-content">
 
-        {/* Week view */}
         <div className={`view-panel ${tab === 'week' ? 'active' : ''}`}>
           <WeekView
             weekStartTs   = {weekStart}
@@ -134,27 +171,21 @@ export default function App() {
           />
         </div>
 
-        {/* Day view */}
         <div className={`view-panel ${tab === 'day' ? 'active' : ''}`}>
           <DayView
-            dateStr      = {selectedDate}
-            events       = {dayEvents}
+            dateStr       = {selectedDate}
+            events        = {dayEvents}
             changedEvents = {changedEvts}
-            onEventClick = {evt => setEventDialog({ event: evt })}
-            onPrev       = {goPrevDay}
-            onNext       = {goNextDay}
+            onEventClick  = {evt => setEventDialog({ event: evt })}
+            onPrev        = {goPrevDay}
+            onNext        = {goNextDay}
           />
         </div>
 
-        {/* Tasks */}
         <div className={`view-panel ${tab === 'tasks' ? 'active' : ''}`}>
-          <TaskList
-            userId      = {user.uid}
-            onEditTask  = {task => setTaskDialog({ task })}
-          />
+          <TaskList userId={user.uid} onEditTask={task => setTaskDialog({ task })} />
         </div>
 
-        {/* Stats */}
         <div className={`view-panel ${tab === 'stats' ? 'active' : ''}`}>
           <StatsView />
         </div>
@@ -169,7 +200,7 @@ export default function App() {
         <button className="fab" onClick={handleFAB} aria-label="הוסף">＋</button>
       )}
 
-      {/* ── Dialogs ── */}
+      {/* ── Event Dialog ── */}
       {eventDialog && (
         <EventDialog
           event       = {eventDialog.event}
@@ -178,13 +209,42 @@ export default function App() {
           onClose     = {() => setEventDialog(null)}
         />
       )}
+
+      {/* ── Task Dialog ── */}
       {taskDialog && (
         <TaskDialog
-          task   = {taskDialog.task}
-          userId = {user.uid}
+          task    = {taskDialog.task}
+          userId  = {user.uid}
           onClose = {() => setTaskDialog(null)}
         />
       )}
+
+      {/* ── Add Child Dialog (parents only) ── */}
+      {codeDialog && (
+        <div className="modal-overlay" onClick={() => setCodeDialog(false)}>
+          <div className="modal-sheet" onClick={e => e.stopPropagation()} style={{ paddingBottom: 28 }}>
+            <div className="modal-handle" />
+            <div className="modal-header">
+              <div className="modal-title">👶 הוסף ילד למשפחה</div>
+              <button className="modal-close" onClick={() => setCodeDialog(false)}>✕</button>
+            </div>
+            <div className="modal-body" style={{ textAlign: 'center' }}>
+              <p style={{ color: '#616161', marginBottom: 16 }}>שתף קוד זה עם הילד:</p>
+              <div style={{
+                fontSize: '3.5rem', fontWeight: 900, letterSpacing: 16,
+                color: '#1A237E', background: '#E8EAF6',
+                borderRadius: 16, padding: '20px 0', marginBottom: 16,
+              }}>
+                {familyCode}
+              </div>
+              <p style={{ color: '#9E9E9E', fontSize: '.82rem', lineHeight: 1.6 }}>
+                הילד יכנס לאפליקציה ← יבחר <strong>אני ילד</strong> ← יכניס קוד זה
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   )
 }
